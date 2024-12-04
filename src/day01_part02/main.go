@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"math"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -15,8 +13,8 @@ func main() {
 	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day01_part01\input.txt`
 
 	left, right := parseData(FILEPATH)
-	sum := getDistanceSum(left, right)
-	fmt.Printf("The sum is %d\n", sum)
+	similarityScore := getSimilarityScore(left, right)
+	fmt.Printf("The similarity score is %d\n", similarityScore)
 }
 
 func parseData(filepath string) ([]int, []int) {
@@ -49,14 +47,22 @@ func parseData(filepath string) ([]int, []int) {
 	return left, right
 }
 
-func getDistanceSum(left []int, right []int) int {
-	sort.Ints(left)
-	sort.Ints(right)
-
-	var sum int = 0
-	for i := range len(left) {
-		sum += int(math.Round(math.Abs(float64(right[i] - left[i]))))
+func getSimilarityScore(left []int, right []int) int {
+	rightSet := make(map[int]int)
+	for _, key := range right {
+		if _, ok := rightSet[key]; ok {
+			rightSet[key]++
+		} else {
+			rightSet[key] = 1
+		}
 	}
 
-	return sum
+	similarityScore := 0
+	for _, value := range left {
+		if count, ok := rightSet[value]; ok {
+			similarityScore += value * count
+		}
+	}
+
+	return similarityScore
 }
