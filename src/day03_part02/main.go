@@ -18,9 +18,9 @@ func main() {
 	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day03_part01\input.txt`
 
 	lines := parseData(FILEPATH)
-	getMatches(lines)
-	//total := getTotal(operands)
-	//fmt.Printf("The total is %d\n", total)
+	filteredOperands := getFilteredMatches(lines)
+	total := getTotal(filteredOperands)
+	fmt.Printf("The total is %d\n", total)
 }
 
 func parseData(filepath string) []string {
@@ -40,7 +40,7 @@ func parseData(filepath string) []string {
 	return lines
 }
 
-func getMatches(lines []string) {
+func getFilteredMatches(lines []string) [][]int {
 	var operandsExpression = regexp.MustCompile(`mul\((\d{1,3}),(\d{1,3})\)`)
 	var commandsExpression = regexp.MustCompile(`don't\(\)|do\(\)`)
 	operandMatchIndices := make([][][]int, 0)
@@ -51,9 +51,7 @@ func getMatches(lines []string) {
 		commandsMatchIndices = append(commandsMatchIndices, commandsExpression.FindAllStringSubmatchIndex(line, -1))
 	}
 
-	filteredOperands := filterMatches(operandMatchIndices, commandsMatchIndices, lines)
-	total := getTotal(filteredOperands)
-	fmt.Printf("The total is %d\n", total)
+	return filterMatches(operandMatchIndices, commandsMatchIndices, lines)
 }
 
 func filterMatches(operandMatchIndices [][][]int, commandsMatchIndices [][][]int, lines []string) [][]int {
