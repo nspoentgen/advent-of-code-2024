@@ -70,11 +70,8 @@ func parseData(filepath string) (map[int]*PageRules, [][]int) {
 			rules[ancestor] = &PageRules{}
 		}
 
-		pageEntry, _ := rules[page]
-		ancestorEntry, _ := rules[ancestor]
-
-		pageEntry.ancestorPages = append(rules[page].ancestorPages, ancestor)
-		ancestorEntry.predecessorPages = append(rules[ancestor].predecessorPages, page)
+		rules[page].ancestorPages = append(rules[page].ancestorPages, ancestor)
+		rules[ancestor].predecessorPages = append(rules[ancestor].predecessorPages, page)
 	}
 
 	//Pages section
