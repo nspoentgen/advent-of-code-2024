@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
+	"sync/atomic"
 )
 
 const STARTING_POSITION rune = '^'
@@ -56,29 +58,47 @@ func parseData(filepath string) [][]rune {
 	return data
 }
 
-func getNumGuardLoops(guardMap [][]rune, startingPos [2]int) int {
-	numLoops := 0
+func getNumGuardLoops(guardMap [][]rune, startingPos [2]int) uint32 {
+	var numLoops atomic.Uint32
+	var wg sync.WaitGroup
+
 	for i := range len(guardMap) {
 		for j := range len(guardMap[i]) {
 			if guardMap[i][j] == OPEN_SPOT {
-				//Test map for trial
-				guardMap[i][j] = OBSTACLE
+				wg.Add(1)
 
-				if guardWillLoop(guardMap, startingPos) {
-					numLoops++
-				}
+				go func() {
+					copiedMap := copyGuardMap(guardMap)
+					copiedMap[i][j] = OBSTACLE
 
-				//Reset for next iteration
-				guardMap[i][j] = OPEN_SPOT
+					if guardWillLoop(copiedMap, startingPos) {
+						numLoops.Add(1)
+					}
+
+					wg.Done()
+				}()
 			}
 		}
 	}
 
-	if guardWillLoop(guardMap, startingPos) {
-		numLoops++
+	wg.Wait()
+	return numLoops.Load()
+}
+
+func copyGuardMap(guardMap [][]rune) [][]rune {
+	copiedMap := make([][]rune, 0)
+
+	for i := range guardMap {
+		row := make([]rune, 0)
+
+		for j := range guardMap[i] {
+			row = append(row, guardMap[i][j])
+		}
+
+		copiedMap = append(copiedMap, row)
 	}
 
-	return numLoops
+	return copiedMap
 }
 
 func guardWillLoop(guardMap [][]rune, startingPos [2]int) bool {
