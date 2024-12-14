@@ -66,11 +66,7 @@ func getNumGuardLoops(guardMap [][]rune, startingPos [2]int) int {
 
 				if guardWillLoop(guardMap, startingPos) {
 					numLoops++
-					fmt.Printf("%d, %d = true\n", i, j)
 				}
-
-				fmt.Printf("%d, %d = false\n", i, j)
-
 
 				//Reset for next iteration
 				guardMap[i][j] = OPEN_SPOT
@@ -87,16 +83,14 @@ func getNumGuardLoops(guardMap [][]rune, startingPos [2]int) int {
 
 func guardWillLoop(guardMap [][]rune, startingPos [2]int) bool {
 	const STARTING_DIRECTION DIRECTION = North
-	NUM_ROWS := len(guardMap)
-	NUM_COLS := len(guardMap[0])
 
 	visitedMap := make(map[VisitedKey]bool)
-	leftArea := false
 	loopDetected := false
 	position := startingPos
 	direction := STARTING_DIRECTION
+	inBounds := true
 
-	for !leftArea && !loopDetected {
+	for inBounds && !loopDetected {
 		visitedKey := VisitedKey{position: position, direction: direction}
 
 		if _, exists := visitedMap[visitedKey]; !exists {
@@ -105,13 +99,7 @@ func guardWillLoop(guardMap [][]rune, startingPos [2]int) bool {
 			loopDetected = true
 		}
 
-		willLeaveArea := willLeaveArea(position, direction, NUM_ROWS, NUM_COLS)
-
-		if !willLeaveArea {
-			position, direction = getNextMove(position, direction, guardMap)
-		}
-
-		leftArea = willLeaveArea
+		position, direction, inBounds = getNextMove(position, direction, guardMap)
 	}
 
 	return loopDetected
@@ -129,27 +117,33 @@ func getStartingPosition(guardMap [][]rune) [2]int {
 	panic("No starting position found")
 }
 
-//Assumes next move can't leave the area. This indirectly means the current position is not
-//on one of the boundaries
-func getNextMove(position [2]int, direction DIRECTION, guardMap [][]rune) ([2]int, DIRECTION) {
+func getNextMove(position [2]int, direction DIRECTION, guardMap [][]rune) ([2]int, DIRECTION, bool) {
 	var nextPosition [2]int
 	var nextDirection DIRECTION
 
-	testPosition := getNextPosition(position, direction)
-	turn := guardMap[testPosition[0]][testPosition[1]] == OBSTACLE
+	testPosition := getNextPosition(position, direction, guardMap)
+	testPositionInBounds := isInBounds(testPosition, guardMap)
 
-	if turn {
+	if testPositionInBounds && guardMap[testPosition[0]][testPosition[1]] == OBSTACLE {
 		nextDirection = getTurnedDirection(direction)
-		nextPosition = getNextPosition(position, nextDirection)
+		nextPosition = getNextPosition(position, nextDirection, guardMap)
+		if guardMap[nextPosition[0]][nextPosition[1]] == OBSTACLE {
+			nextPosition = position;
+		}
 	} else {
 		nextPosition = testPosition
 		nextDirection = direction
 	}
 
-	return nextPosition, nextDirection
+	return nextPosition, nextDirection, isInBounds(nextPosition, guardMap)
 }
 
-func getNextPosition(position [2]int, direction DIRECTION) (nextPosition [2]int) {
+func isInBounds(position [2]int, guardMap [][]rune) bool {
+	return position[0] >= 0 && position[0] < len(guardMap) &&
+		position[1] >= 0 && position[1]  < len(guardMap[0])
+}
+
+func getNextPosition(position [2]int, direction DIRECTION, guardMap [][]rune) (nextPosition [2]int) {
 	switch direction {
 	case North:
 		nextPosition = [2]int{position[0] - 1, position[1]}
@@ -174,21 +168,6 @@ func getTurnedDirection(direction DIRECTION) (turnedDirection DIRECTION) {
 		turnedDirection = West
 	case West:
 		turnedDirection = North
-	}
-
-	return
-}
-
-func willLeaveArea(position [2]int, direction DIRECTION, numRows int, numCols int) (willLeave bool) {
-	switch direction {
-	case North:
-		willLeave = position[0] == 0
-	case East:
-		willLeave =  position[1] == numCols - 1
-	case South:
-		willLeave =  position[0] == numRows - 1
-	case West:
-		willLeave =  position[1] == 0
 	}
 
 	return
