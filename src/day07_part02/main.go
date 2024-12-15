@@ -2,12 +2,13 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"golang.org/x/text/message"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
 
 type BridgeData struct {
@@ -19,6 +20,7 @@ type OPERATION uint64
 const (
 	Add OPERATION = iota
 	Multiply
+	Concatenate
 )
 
 func main() {
@@ -70,20 +72,23 @@ func parseData(filepath string) [] BridgeData {
 }
 
 func getPossibleOperationsSum(data *[]BridgeData) uint64 {
-	var sum uint64 = 0
+	var sum atomic.Uint64
+	var wg sync.WaitGroup
 
-	for index, row := range *data {
-		result := false
+	for _, row := range *data {
+		wg.Add(1)
 
-		if operationPossible(row.value, &row.operands) {
-			sum += row.value
-			result = true
-		}
+		go func() {
+			if operationPossible(row.value, &row.operands) {
+				sum.Add(row.value)
+			}
 
-		fmt.Printf("Row %d = %t\n", index, result)
+			wg.Done()
+		} ()
 	}
 
-	return sum
+	wg.Wait()
+	return sum.Load()
 }
 
 func operationPossible(value uint64, operands *[]uint64) bool {
@@ -108,13 +113,14 @@ func operationPossible(value uint64, operands *[]uint64) bool {
 }
 
 func generatePermutations(n int) [][]OPERATION {
-	operationValues := []OPERATION{Add, Multiply}
+	operationValues := []OPERATION{Add, Multiply, Concatenate}
 	permutations := make([][]OPERATION, 0)
 
 	if n == 1 {
 		return [][]OPERATION{
 			{Add},
-			{Multiply}}
+			{Multiply},
+		    {Concatenate}}
 	}
 
 	subpermutations := generatePermutations(n - 1)
@@ -142,7 +148,16 @@ func generatePermutations(n int) [][]OPERATION {
 func doOperation(a uint64, b uint64, operation OPERATION) uint64 {
 	if operation == Add {
 		return a + b
-	} else {
+	} else if operation == Multiply {
 		return a * b
+	} else if operation == Concatenate {
+		concatString := strconv.FormatUint(a, 10) + strconv.FormatUint(b, 10)
+		result, err := strconv.ParseUint(concatString, 10, 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return result
+	} else {
+		panic("Operation not supported")
 	}
 }
