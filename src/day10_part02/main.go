@@ -16,7 +16,7 @@ func main() {
 	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day10_part01\input.txt`
 	topoMap := parseData(FILEPATH)
 
-	sum := getTrailScoreSum(topoMap)
+	sum := getTrailRatingsSum(topoMap)
 	fmt.Printf("The sum is %d\n", sum)
 }
 
@@ -44,13 +44,13 @@ func parseData(filepath string) [][]int {
 	return topoMap
 }
 
-func getTrailScoreSum(topoMap [][]int) int {
+func getTrailRatingsSum(topoMap [][]int) int {
 	sum := 0
 
 	for row := range len(topoMap) {
 		for col := range len(topoMap[row]) {
 			if topoMap[row][col] == 0 {
-				sum += getTrailScore([2]int{row, col}, topoMap)
+				sum += getTrailRating([2]int{row, col}, topoMap)
 			}
 		}
 	}
@@ -60,12 +60,11 @@ func getTrailScoreSum(topoMap [][]int) int {
 
 
 //Assumes starting at valid position
-func getTrailScore(position [2]int, topoMap [][]int) int {
-	score := 0
+func getTrailRating(position [2]int, topoMap [][]int) int {
 	workStack := NewStack[*WorkItem]()
 	visited := make(map[[2]int]byte)
-	topPositions := make(map[[2]int]byte)
 	visited[position] = 0
+	rating := 0
 
 	workStack.Push(&WorkItem{visited: visited, position: position})
 	workLeft := true
@@ -79,12 +78,9 @@ func getTrailScore(position [2]int, topoMap [][]int) int {
 				height := topoMap[move[0]][move[1]]
 
 				if height == 9 {
-					if _, contains := topPositions[move]; !contains {
-						topPositions[move] = 0
-						score++
-					}
+					rating++
 				} else {
-					visited = cloneMap(visited)
+					visited = cloneMap(val.visited)
 					visited[move] = 0
 					workStack.Push(&WorkItem{visited: visited, position: move})
 				}
@@ -92,7 +88,7 @@ func getTrailScore(position [2]int, topoMap [][]int) int {
 		}
 	}
 
-	return score
+	return rating
 }
 
 func getValidMoves(position [2]int, topoMap [][]int, visited map[[2]int]byte) [][2]int {
