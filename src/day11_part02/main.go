@@ -7,22 +7,25 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 )
 
 type WorkItem struct {
-	number uint64
+	number     uint64
 	blinkCount int
+}
+
+type CacheEntry struct {
+	numBlinks  int
+	finalCount uint64
 }
 
 const NUM_BLINKS int = 75
 
 func main() {
-	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day11_part01\test_input.txt`
+	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day11_part01\input.txt`
 
 	initialStoneLine := parseData(FILEPATH)
-	finalCount := getFinalStoneLineCount(initialStoneLine)
+	finalCount := getFinalCount(initialStoneLine)
 	fmt.Printf("The number of stones is %d\n", finalCount)
 }
 
@@ -46,86 +49,41 @@ func parseData(filepath string) []uint64 {
 	return lineVals
 }
 
-func getFinalStoneLineCount(initialStoneLine []uint64) uint64 {
-	maxBlink := atomic.Int32{}
+func getFinalCount(initialStoneLine []uint64) uint64 {
+	cache := make(map[[2]uint64]uint64)
+	workStack := NewStack[WorkItem]()
 
-	workQueue := make(chan WorkItem, 1000)
-	for _, stoneNumber := range(initialStoneLine) {
-		workQueue <- WorkItem{number: stoneNumber, blinkCount: 0}
+	for i := len(initialStoneLine) - 1; i >= 0; i-- {
+		workStack.Push(WorkItem{
+			number:     initialStoneLine[i],
+			blinkCount: 75})
 	}
 
-	cache := sync.Map{}
-	stoneCount := atomic.Uint64{}
-	writerCount := atomic.Int64{}
-	done := false
+	for workStack.Len() > 0 {
+		task, _ := workStack.Pop()
 
-	for !done {
-		dataRead := false
-
-		WorkQueueWaitLoop:
-		for {
-			select {
-			case nextWorkItem := <- workQueue:
-				writerCount.Add(1)
-				go writer(nextWorkItem, workQueue, &writerCount, &stoneCount, &maxBlink, &cache)
-				dataRead = true
-
-				break WorkQueueWaitLoop
-			default:
-				if writerCount.Load() == 0 {
-					break WorkQueueWaitLoop
-				}
-			}
-		}
-
-		done = !dataRead && writerCount.Load() == 0
-	}
-
-	return stoneCount.Load()
-}
-
-func writer(stoneInfo WorkItem, workQueue chan WorkItem, writerCount *atomic.Int64, stoneCount *atomic.Uint64, maxBlink *atomic.Int32, cache *sync.Map) {
-	newWorkItems := blink(stoneInfo, stoneCount, maxBlink, cache)
-
-	for _, item := range newWorkItems {
-		workQueue <- item
-	}
-
-	writerCount.Add(-1)
-}
-
-func blink(srcStone WorkItem, stoneCount *atomic.Uint64, maxBlink *atomic.Int32, cache *sync.Map) []WorkItem {
-	newWork := make([]WorkItem, 0)
-
-	if srcStone.blinkCount == NUM_BLINKS {
-		stoneCount.Add(1)
-	} else {
-		var newStones []uint64
-		newStonesAny, contains := cache.Load(srcStone.number)
-
-		if contains {
-			newStones = newStonesAny.([]uint64)
+		if task.blinkCount == 1 {
+			rootCase(&task, cache)
 		} else {
-			newStones = updateStone(srcStone.number)
-			cache.Store(srcStone.number, newStones)
-		}
-
-		for _, newStoneNumber := range newStones {
-			newWork = append(newWork, WorkItem{
-				number:     newStoneNumber,
-				blinkCount: srcStone.blinkCount + 1})
-		}
-
-		if int32(srcStone.blinkCount + 1) > maxBlink.Load(){
-			maxBlink.Store(int32(srcStone.blinkCount + 1))
-			fmt.Printf("max blink count is %d\n", srcStone.blinkCount + 1)
+			mainCase(&task, workStack, cache)
 		}
 	}
 
-	return newWork
+	var finalCount uint64 = 0
+	for _, stoneNumber := range initialStoneLine {
+		subcount, contains := cache[[2]uint64{stoneNumber, 75}]
+
+		if !contains {
+			log.Fatal("75th blink of stone not found")
+		}
+
+		finalCount += subcount
+	}
+
+	return finalCount
 }
 
-func updateStone(stone uint64) []uint64 {
+func blink(stone uint64) []uint64 {
 	newStones := make([]uint64, 0)
 
 	if stone == 0 {
@@ -134,14 +92,53 @@ func updateStone(stone uint64) []uint64 {
 		stringifiedNum := strconv.FormatUint(stone, 10)
 		numLength := len(stringifiedNum)
 
-		if numLength % 2 == 0 {
-			leftStone, _ := strconv.ParseUint(stringifiedNum[0 : numLength / 2], 10, 64)
-			rightStone, _ := strconv.ParseUint(stringifiedNum[numLength / 2:], 10, 64)
+		if numLength%2 == 0 {
+			leftStone, _ := strconv.ParseUint(stringifiedNum[0:numLength/2], 10, 64)
+			rightStone, _ := strconv.ParseUint(stringifiedNum[numLength/2:], 10, 64)
 			newStones = append(newStones, leftStone, rightStone)
 		} else {
-			newStones = append(newStones, stone * 2024)
+			newStones = append(newStones, stone*2024)
 		}
 	}
 
 	return newStones
+}
+
+func rootCase(task *WorkItem, cache map[[2]uint64]uint64) {
+	cache[[2]uint64{task.number, 1}] = uint64(len(blink(task.number)))
+}
+
+func mainCase(task *WorkItem, workStack *Stack[WorkItem], cache map[[2]uint64]uint64) {
+	subproblemsDone := true
+	newStones := blink(task.number)
+
+	for _, newStone := range newStones {
+		if _, contains := cache[[2]uint64{newStone, uint64(task.blinkCount - 1)}]; !contains {
+			//On first detection that subproblems are incomplete, add back the original problem
+			//to queue it after subproblems (since we are LIFO)
+			if subproblemsDone {
+				workStack.Push(*task)
+			}
+
+			subproblemsDone = false
+			workStack.Push(WorkItem{
+				number:     newStone,
+				blinkCount: task.blinkCount - 1})
+		}
+	}
+
+	if subproblemsDone {
+		var count uint64 = 0
+
+		for _, newStone := range newStones {
+			subcount, contains := cache[[2]uint64{newStone, uint64(task.blinkCount - 1)}]
+			if !contains {
+				log.Fatal("Something is wrong. Entry should be available but was not found")
+			}
+
+			count += subcount
+		}
+
+		cache[[2]uint64{task.number, uint64(task.blinkCount)}] = count
+	}
 }
