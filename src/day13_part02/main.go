@@ -124,9 +124,8 @@ func getMinNumTokens(allMachineParams []MachineParams) int64 {
 }
 
 func minimizeMachine(machineParams MachineParams, output chan<- int64) {
-	const COST_A = 3
-	const COST_B = 1
-	const MAX_PUSHES = 100
+	const COST_A int64 = 3
+	const COST_B int64 = 1
 
 	constraint := func(a float64, b float64) bool {
 		var integerA = int64(a)
@@ -159,7 +158,7 @@ func minimizeMachine(machineParams MachineParams, output chan<- int64) {
 	if constraint(numAPushes, numBPushes) {
 		var integerNumAPushes = int64(numAPushes)
 		var integerNumBPushes = int64(numBPushes)
-		minCost = 3*integerNumAPushes + integerNumBPushes
+		minCost = COST_A*integerNumAPushes + COST_B*integerNumBPushes
 	}
 
 	if minCost == MAX_COST {
