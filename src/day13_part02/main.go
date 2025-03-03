@@ -131,8 +131,8 @@ func minimizeMachine(machineParams MachineParams, output chan<- int64) {
 		var integerA = int64(a)
 		var integerB = int64(b)
 
-		if math.Abs(math.Round(a)-float64(integerA)) > 1e-15 ||
-			math.Abs(math.Round(b)-float64(integerB)) > 1e-15 {
+		if math.Abs(a-float64(integerA)) > 1e-15 ||
+			math.Abs(b-float64(integerB)) > 1e-15 {
 			return false
 		}
 
