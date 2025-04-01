@@ -156,8 +156,8 @@ func minimizeMachine(machineParams MachineParams, output chan<- int64) {
 	var numBPushes = (b*e - a*f) / (b*c - a*d)
 
 	if constraint(numAPushes, numBPushes) {
-		var integerNumAPushes = int64(numAPushes)
-		var integerNumBPushes = int64(numBPushes)
+		var integerNumAPushes = int64(math.Round(numAPushes))
+		var integerNumBPushes = int64(math.Round(numBPushes))
 		minCost = COST_A*integerNumAPushes + COST_B*integerNumBPushes
 	}
 
