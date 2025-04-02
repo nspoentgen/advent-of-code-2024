@@ -15,7 +15,7 @@ import (
 	"gonum.org/v1/plot/vg/draw"
 )
 
-const OUTPUT_FOLDER = "pics";
+const OUTPUT_FOLDER = "pics"
 
 func main() {
 	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day14_part01\input.txt`
@@ -72,31 +72,31 @@ func parseData(filepath string, fieldDimensions *[2]int64) []Robot {
 }
 
 func easterEggSearch(robots []Robot, fieldDimensions *[2]int64, kernelDimensions *[2]int64) {
-	const MAX_TIME_SEC int64 = 100000;
-	var wg sync.WaitGroup;
+	const MAX_TIME_SEC int64 = 100000
+	var wg sync.WaitGroup
 
-	os.RemoveAll(OUTPUT_FOLDER);
-	os.MkdirAll(OUTPUT_FOLDER, os.ModeDir);
+	os.RemoveAll(OUTPUT_FOLDER)
+	os.MkdirAll(OUTPUT_FOLDER, os.ModeDir)
 
 	for index := range MAX_TIME_SEC {
 		wg.Add(1)
 
-		var time_sec = index + 1;
+		var time_sec = index + 1
 		robotsCopy := make([]Robot, len(robots))
 		copy(robotsCopy, robots)
 
 		go func() {
-			defer wg.Done();
-			occupied := moveRobots(robotsCopy, time_sec, fieldDimensions);
-			match := kernelScan(occupied, fieldDimensions, kernelDimensions);
+			defer wg.Done()
+			occupied := moveRobots(robotsCopy, time_sec, fieldDimensions)
+			match := kernelScan(occupied, fieldDimensions, kernelDimensions)
 
 			if match {
-				plotResult(time_sec, occupied);
+				plotResult(time_sec, occupied)
 			}
 		}()
 	}
 
-	wg.Wait();
+	wg.Wait()
 }
 
 func moveRobots(robots []Robot, time_sec int64, fieldDimensions *[2]int64) [][]bool {
@@ -106,53 +106,53 @@ func moveRobots(robots []Robot, time_sec int64, fieldDimensions *[2]int64) [][]b
 		occupied = append(occupied, make([]bool, fieldDimensions[1]))
 
 		for j := range fieldDimensions[1] {
-			occupied[i][j] = false;
+			occupied[i][j] = false
 		}
 	}
 
 	for _, robot := range robots {
 		robot.Move(time_sec)
-		occupied[robot.Position[0]][robot.Position[1]] = true;
+		occupied[robot.Position[0]][robot.Position[1]] = true
 	}
 
-	return occupied;
+	return occupied
 }
 
 func kernelScan(occupied [][]bool, fieldDimensions *[2]int64, kernelDimensions *[2]int64) bool {
 	for mapX := range fieldDimensions[0] {
 		for mapY := range fieldDimensions[1] {
 			if int64(mapX) + kernelDimensions[0] - 1 > fieldDimensions[0] - 1 || int64(mapY) + kernelDimensions[1] - 1 > fieldDimensions[1] - 1 {
-				continue;
+				continue
 			}
 
-			valid := true;
+			valid := true
 
 			for kernelX := mapX; kernelX < mapX + kernelDimensions[0]; kernelX++ {
 				for kernelY := mapY; kernelY < mapY + kernelDimensions[1]; kernelY++ {
 					if !occupied[kernelX][kernelY] {
-						valid = false;
-						break;
+						valid = false
+						break
 					}
 				}
 
 				if !valid{
-					break;
+					break
 				}
 			}
 
 			if valid {
-				return true;
+				return true
 			}
 		}
 	}
 
-	return false;
+	return false
 }
 
 func plotResult(time_sec int64, occupied [][]bool) {
 	p := plot.New()
 
-	pts := make(plotter.XYs, 0);
+	pts := make(plotter.XYs, 0)
 
 	for i, _ := range occupied {
 		for j, _ := range occupied[i] {
@@ -163,9 +163,9 @@ func plotResult(time_sec int64, occupied [][]bool) {
 	}
 
 	scatter, err := plotter.NewScatter(pts)
-	scatter.GlyphStyle.Color = color.Black;
-	scatter.GlyphStyle.Radius = 3;
-	scatter.GlyphStyle.Shape = draw.CircleGlyph{};
+	scatter.GlyphStyle.Color = color.Black
+	scatter.GlyphStyle.Radius = 3
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
 
 	if err != nil {
 		log.Panic(err)
@@ -173,7 +173,7 @@ func plotResult(time_sec int64, occupied [][]bool) {
 
 	p.Add(scatter)
 
-	err = p.Save(1000, 1000, fmt.Sprintf("%s\\%d.png", OUTPUT_FOLDER, time_sec));
+	err = p.Save(1000, 1000, fmt.Sprintf("%s\\%d.png", OUTPUT_FOLDER, time_sec))
 	if err != nil {
 		log.Panic(err)
 	}
