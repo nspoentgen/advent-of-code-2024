@@ -38,25 +38,9 @@ func (r *Robot) GetId() int {
 }
 
 func (r *Robot) CanMove(direction rune, warehouseMap [][]int, objects map[int]IObject) bool {
-	var rowOffset int
-	var colOffset int
-
-	if direction == UP {
-		rowOffset = -1
-		colOffset = 0
-	} else if direction == RIGHT {
-		rowOffset = 0
-		colOffset = 1
-	} else if direction == DOWN {
-		rowOffset = 1
-		colOffset = 0
-	} else {
-		rowOffset = 0
-		colOffset = -1
-	}
-
-	row := r.Position[0] + rowOffset
-	col := r.Position[1] + colOffset
+	newPostion := r.calcPosition(direction)
+	row := newPostion[0]
+	col := newPostion[1]
 
 	var canMove bool
 
@@ -209,7 +193,7 @@ func (b *Box) Move(direction rune, warehouseMap [][]int, objects map[int]IObject
 	}
 
 	objectId2 := warehouseMap[newPosition[0]][newPosition[1] + 1]
-	if objectId2 != b.Id && objectId2 >= ROBOT && (direction == UP || direction == DOWN) && objectId2 != objectId {
+	if objectId2 != b.Id && objectId2 >= ROBOT && objectId2 != objectId {
 		object2 := objects[objectId2]
 		object2.Move(direction, warehouseMap, objects)
 	}

@@ -18,7 +18,7 @@ const (
 
 
 func main() {
-	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day15_part01\test_input2.txt`
+	const FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day15_part01\input.txt`
 
 	warehouseMap, actions, startingPosition := parseData(FILEPATH)
 	warehouseIdMap, robot, objectIdMap := generateSolverData(warehouseMap, startingPosition)
