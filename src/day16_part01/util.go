@@ -1,39 +1,52 @@
 package main
 
 import (
-	"errors"
+	"container/heap"
 )
 
-type Stack[TData any] struct {
-	s []TData
+// An Item is something we manage in a priority queue.
+type Item struct {
+	value    *MazeState // The value of the item; arbitrary.
+	priority int64    // The priority of the item in the queue.
+	// The index is needed by update and is maintained by the heap.Interface methods.
+	index int// The index of the item in the heap.
 }
 
-func NewStack[TData any]() *Stack[TData] {
-	return &Stack[TData]{make([]TData,0), }
+// A PriorityQueue implements heap.Interface and holds Items.
+type PriorityQueue []*Item
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	return pq[i].priority < pq[j].priority
 }
 
-func (s *Stack[TData]) Push(v TData) {
-	s.s = append(s.s, v)
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
 }
 
-func (s *Stack[TData]) Pop() (TData, error) {
-	l := len(s.s)
-	if l == 0 {
-		var dummy TData
-		return dummy, errors.New("Empty Stack")
-	}
-
-	res := s.s[l-1]
-	s.s = s.s[:l-1]
-	return res, nil
+func (pq *PriorityQueue) Push(x any) {
+	n := len(*pq)
+	item := x.(*Item)
+	item.index = n
+	*pq = append(*pq, item)
 }
 
-func cloneMap[TKey comparable, TValue any](input map[TKey]TValue) map[TKey]TValue {
-	clonedMap := make(map[TKey]TValue)
+func (pq *PriorityQueue) Pop() any {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil  // don't stop the GC from reclaiming the item eventually
+	item.index = -1 // for safety
+	*pq = old[0 : n-1]
+	return item
+}
 
-	for k, v := range input {
-		clonedMap[k] = v
-	}
-
-	return clonedMap
+// update modifies the priority and value of an Item in the queue.
+func (pq *PriorityQueue) update(item *Item, value *MazeState, priority int64) {
+	item.value = value
+	item.priority = priority
+	heap.Fix(pq, item.index)
 }

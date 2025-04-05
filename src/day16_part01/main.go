@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"container/heap"
 	"log"
 	"os"
 )
@@ -14,6 +15,7 @@ const (
 )
 
 type Orientation int
+
 const (
 	NORTH Orientation = iota
 	EAST
@@ -21,23 +23,20 @@ const (
 	WEST
 )
 
+const MAX_COST int64 = 1<<63 - 1
+
 type MazeState struct {
 	Orientation Orientation
-	Position [2]int
-}
-
-type JobState struct {
-	Position *[2]int
-	Orientation Orientation
-	Visited map[MazeState]bool
+	Position    [2]int
 }
 
 func main() {
-	const INPUT_FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day16_part01\test_input2.txt`
+	const INPUT_FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day16_part01\input.txt`
 	const STARTING_ORIENTATION Orientation = EAST
 
 	maze, startingLocation, goalLocation := parseData(INPUT_FILEPATH)
-	minCost := solveMaze(startingLocation, STARTING_ORIENTATION, maze, goalLocation)
+	initalState := MazeState{Position: *startingLocation, Orientation: STARTING_ORIENTATION}
+	minCost, _ := solveMaze(&initalState, maze, goalLocation)
 	log.Printf("The min cost is %d\n", minCost)
 }
 
@@ -51,7 +50,7 @@ func parseData(filepath string) ([][]rune, *[2]int, *[2]int) {
 
 	maze := make([][]rune, 0)
 	startingLocation := [2]int{-1, -1}
-	endingLocation := [2]int{-1,-1}
+	endingLocation := [2]int{-1, -1}
 
 	scanner := bufio.NewScanner(file)
 	i := 0
@@ -78,166 +77,126 @@ func parseData(filepath string) ([][]rune, *[2]int, *[2]int) {
 	return maze, &startingLocation, &endingLocation
 }
 
-func solveMaze(startingPosition *[2]int, startingOrientation Orientation, maze [][]rune, goalPosition *[2]int) int64 {
-	const MAX_COST int64 = 1<<63 - 1
+func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (int64, []*MazeState) {
+	const MAX_ITERATIONS int = 1000000
 	
-	cache := make(map[MazeState]int64)
-	workStack := NewStack[*JobState]() 
-	
-	initialVisited := make(map[MazeState]bool)
-	initialStateKey := MazeState{Position: *startingPosition, Orientation: startingOrientation}
-	initialVisited[initialStateKey] = true
+	minCosts := make(map[MazeState]int64)
+	path := make([]*MazeState, 0)
+	searchQueue := make(PriorityQueue, 0)
+	searchQueue.Push(&Item{value: initialState, priority: 0, index: 0})
+	heap.Init(&searchQueue)
 
-	initialState := JobState{
-		Position: startingPosition,
-		Orientation: startingOrientation,
-		Visited: initialVisited}
-	workStack.Push(&initialState)
+	minCosts[*initialState] = 0
+	iteration := 0
 
-	workLeft := true
-	for workLeft {
-		state, err := workStack.Pop()
+	for iteration < MAX_ITERATIONS {
+		searchItem := heap.Pop(&searchQueue).(*Item)
+		state := searchItem.value
+		cost := searchItem.priority
+		minCost := getMinCost(minCosts, state)
 
-		if err == nil {
-			moves, moveCosts, reachedGoal := getValidMoves(state.Position, state.Orientation, maze, state.Visited, goalPosition)
-
-			if reachedGoal {
-				key := MazeState{Position: *state.Position, Orientation: state.Orientation}
-				cache[key] = 0
-			} else {
-				uncompletedMoves := make([]*MazeState, 0)
-				minPathCost := MAX_COST
-
-				for i := range len(moves) {
-					childPathCost, exists := cache[*moves[i]]
-
-					if exists && childPathCost < MAX_COST {
-						pathCost := moveCosts[i] + childPathCost
-
-						if pathCost < minPathCost {
-							minPathCost = pathCost
-						}
-					} else if !exists {
-						uncompletedMoves = append(uncompletedMoves, moves[i])
-					}
-				}
-
-				if len(uncompletedMoves) == 0 && minPathCost == MAX_COST {
-					cacheKey := MazeState{Position: *state.Position, Orientation: state.Orientation}
-					cache[cacheKey] = MAX_COST
-				} else if len(uncompletedMoves) == 0 && minPathCost < MAX_COST {
-					cacheKey := MazeState{Position: *state.Position, Orientation: state.Orientation}
-					cache[cacheKey] = minPathCost
-				} else {
-					workStack.Push(state)
-					visitedCopy := cloneMap(state.Visited)
-					visitedKey := MazeState{Position: *state.Position, Orientation: state.Orientation}
-					visitedCopy[visitedKey] = true
-
-					for _, uncompletedMove := range uncompletedMoves {
-						workStack.Push(&JobState{
-							Position: &uncompletedMove.Position,
-							Orientation: uncompletedMove.Orientation,
-							Visited: visitedCopy})
-					}
-				}
-			}
-		} else {
-			workLeft = false
+		if state.Position == *goalPosition {
+			return cost, path
 		}
+
+		if cost > minCost {
+			continue
+		}
+
+		moves, moveCosts := getValidMoves(&state.Position, state.Orientation, maze)
+		for i := range len(moves) {
+			updatedMincost := cost + moveCosts[i]
+			currentMinCost := getMinCost(minCosts, moves[i])
+
+			if updatedMincost < currentMinCost {
+				item := Item{value: moves[i], priority: updatedMincost}
+				heap.Push(&searchQueue, &item)
+
+				minCosts[*moves[i]] = updatedMincost
+				path = append(path, moves[i])
+			}
+		}
+
+		iteration++
 	}
 
-	minCost, exists := cache[initialStateKey]
-	
+	return MAX_COST, path
+}
+
+func getMinCost(minCosts map[MazeState]int64, state *MazeState) int64 {
+	minCost, exists := minCosts[*state]
 	if !exists {
-		log.Fatal("Something is wrong. Could not calculate min cost")
+		minCost = MAX_COST
 	}
 
 	return minCost
 }
 
-func getValidMoves(position *[2]int, orientation Orientation, maze [][]rune, visited map[MazeState]bool, goalPosition *[2]int) ([]*MazeState, []int64, bool) {
+func getValidMoves(position *[2]int, orientation Orientation, maze [][]rune) ([]*MazeState, []int64) {
 	const MOVE_COST int64 = 1
 	const ROTATE_COST int64 = 1000
-	
+
 	moves := make([]*MazeState, 0)
 	costs := make([]int64, 0)
-	reachedGoal := false
 
-	if *position == *goalPosition {
-		reachedGoal = true
+	//Move move
+	var rowOffset int
+	var colOffset int
+
+	if orientation == NORTH {
+		rowOffset = -1
+		colOffset = 0
+	} else if orientation == EAST {
+		rowOffset = 0
+		colOffset = 1
+	} else if orientation == SOUTH {
+		rowOffset = 1
+		colOffset = 0
 	} else {
-		//Move move
-		var rowOffset int
-		var colOffset int
-
-		if orientation == NORTH {
-			rowOffset = -1
-			colOffset = 0
-		} else if orientation == EAST {
-			rowOffset = 0
-			colOffset = 1
-		} else if orientation == SOUTH {
-			rowOffset = 1
-			colOffset = 0
-		} else {
-			rowOffset = 0
-			colOffset = -1
-		}
-
-		movePosition := [2]int {position[0] + rowOffset, position[1] + colOffset}
-		if maze[movePosition[0]][movePosition[1]] == EMPTY {
-			move1 := MazeState{Position: movePosition, Orientation: orientation}
-
-			_, exists := visited[move1]
-			if !exists {
-				moves = append(moves, &move1)
-				costs = append(costs, MOVE_COST)
-			}
-		}
-
-		//Rotate CW move
-		var cwMoveOrientation Orientation
-
-		if orientation == NORTH {
-			cwMoveOrientation = EAST
-		} else if orientation == EAST {
-			cwMoveOrientation = SOUTH
-		} else if orientation == SOUTH {
-			cwMoveOrientation = WEST
-		} else {
-			cwMoveOrientation = NORTH
-		}
-
-		move2 := MazeState{Position: *position, Orientation: cwMoveOrientation}
-		
-		_, exists := visited[move2]
-		if !exists {
-			moves = append(moves, &move2)
-			costs = append(costs, ROTATE_COST)
-		}
-
-		//Rotate CCW move
-		var ccwMoveOrientation Orientation
-
-		if orientation == NORTH {
-			ccwMoveOrientation = WEST
-		} else if orientation == WEST {
-			ccwMoveOrientation = SOUTH
-		} else if orientation == SOUTH {
-			ccwMoveOrientation = EAST
-		} else {
-			ccwMoveOrientation = NORTH
-		}
-
-		move3 := MazeState{Position: *position, Orientation: ccwMoveOrientation}
-		
-		_, exists = visited[move3]
-		if !exists {
-			moves = append(moves, &move3)
-			costs = append(costs, ROTATE_COST)
-		}
+		rowOffset = 0
+		colOffset = -1
 	}
 
-	return moves, costs, reachedGoal
+	movePosition := [2]int{position[0] + rowOffset, position[1] + colOffset}
+	if maze[movePosition[0]][movePosition[1]] == EMPTY {
+		move1 := MazeState{Position: movePosition, Orientation: orientation}
+		moves = append(moves, &move1)
+		costs = append(costs, MOVE_COST)
+	}
+
+	//Rotate CW move
+	var cwMoveOrientation Orientation
+
+	if orientation == NORTH {
+		cwMoveOrientation = EAST
+	} else if orientation == EAST {
+		cwMoveOrientation = SOUTH
+	} else if orientation == SOUTH {
+		cwMoveOrientation = WEST
+	} else {
+		cwMoveOrientation = NORTH
+	}
+
+	move2 := MazeState{Position: *position, Orientation: cwMoveOrientation}
+	moves = append(moves, &move2)
+	costs = append(costs, ROTATE_COST)
+
+	//Rotate CCW move
+	var ccwMoveOrientation Orientation
+
+	if orientation == NORTH {
+		ccwMoveOrientation = WEST
+	} else if orientation == WEST {
+		ccwMoveOrientation = SOUTH
+	} else if orientation == SOUTH {
+		ccwMoveOrientation = EAST
+	} else {
+		ccwMoveOrientation = NORTH
+	}
+
+	move3 := MazeState{Position: *position, Orientation: ccwMoveOrientation}
+	moves = append(moves, &move3)
+	costs = append(costs, ROTATE_COST)
+
+	return moves, costs
 }
