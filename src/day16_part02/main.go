@@ -37,9 +37,17 @@ func main() {
 
 	maze, startingLocation, goalLocation := parseData(INPUT_FILEPATH)
 	initalState := MazeState{Position: *startingLocation, Orientation: STARTING_ORIENTATION}
-	minCost, path := solveMaze(&initalState, maze, goalLocation)
-	_ = path
+	minCost, paths := solveMaze(&initalState, maze, goalLocation)
+	
+	uniqueTiles := make(map[[2]int]bool)
+	for _, path := range paths {
+		for _, tile := range path {
+			uniqueTiles[tile.Position] = true
+		}
+	}
+
 	log.Printf("The min cost is %d\n", minCost)
+	log.Printf("The number of unique tiles is %d\n", len(uniqueTiles))
 }
 
 func parseData(filepath string) ([][]rune, *[2]int, *[2]int) {
@@ -79,11 +87,11 @@ func parseData(filepath string) ([][]rune, *[2]int, *[2]int) {
 	return maze, &startingLocation, &endingLocation
 }
 
-func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (int64, []*MazeState) {
+func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (int64, [][]*MazeState) {
 	const MAX_ITERATIONS int = 1000000
 	
 	minCosts := make(map[MazeState]int64)
-	prev := make(map[MazeState]*MazeState)
+	prev := make(map[MazeState][]*MazeState)
 	searchQueue := make(PriorityQueue, 0)
 	searchQueue.Push(&Item{value: initialState, priority: 0, index: 0})
 	heap.Init(&searchQueue)
@@ -98,7 +106,7 @@ func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (in
 		minCost := getMinCost(minCosts, state)
 
 		if state.Position == *goalPosition {
-			return cost, generatePath(prev, state)
+			return cost, generatePaths(prev, state, make([]*MazeState, 0))
 		}
 
 		if cost > minCost {
@@ -115,28 +123,44 @@ func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (in
 				heap.Push(&searchQueue, &item)
 
 				minCosts[*moves[i]] = updatedMincost
-				prev[*moves[i]] = state
+				prev[*moves[i]] = []*MazeState{state}
+			} else if updatedMincost == currentMinCost {
+				prev[*moves[i]] = append(prev[*moves[i]], state)
 			}
 		}
 
 		iteration++
 	}
 
-	return MAX_COST, make([]*MazeState, 0)
+	return MAX_COST, make([][]*MazeState, 0)
 }
 
-func generatePath(prev map[MazeState]*MazeState, finalState *MazeState) []*MazeState {
-	path := make([]*MazeState, 0)
-	exists := true
-	node := finalState
-	
-	for exists {
-		path = append(path, node)
-		node, exists = prev[*node]
+func generatePaths(prev map[MazeState][]*MazeState, initalState *MazeState, path []*MazeState) [][]*MazeState {
+	processing := true
+	nodes := []*MazeState{initalState}
+	paths := make([][]*MazeState, 0)
+
+	for processing {
+		if len(nodes) == 1 {
+			path = append(path, nodes[0])
+			nodes, processing = prev[*nodes[0]]
+		} else {
+			for _, node := range nodes {
+				pathCopy := make([]*MazeState, len(path))
+				copy(pathCopy, path)
+				paths = append(paths, generatePaths(prev, node, pathCopy)...)
+			}
+
+			processing = false
+		}
 	}
 
-	slices.Reverse(path)
-	return path
+	if len(paths) == 0 {
+		slices.Reverse(path)
+		paths = append(paths, path)
+	}
+
+	return paths
 }
 
 func getMinCost(minCosts map[MazeState]int64, state *MazeState) int64 {
