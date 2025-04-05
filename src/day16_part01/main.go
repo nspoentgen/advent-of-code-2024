@@ -5,6 +5,7 @@ import (
 	"container/heap"
 	"log"
 	"os"
+	"slices"
 )
 
 const (
@@ -31,12 +32,13 @@ type MazeState struct {
 }
 
 func main() {
-	const INPUT_FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day16_part01\input.txt`
+	const INPUT_FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day16_part01\test_input.txt`
 	const STARTING_ORIENTATION Orientation = EAST
 
 	maze, startingLocation, goalLocation := parseData(INPUT_FILEPATH)
 	initalState := MazeState{Position: *startingLocation, Orientation: STARTING_ORIENTATION}
-	minCost, _ := solveMaze(&initalState, maze, goalLocation)
+	minCost, path := solveMaze(&initalState, maze, goalLocation)
+	_ = path
 	log.Printf("The min cost is %d\n", minCost)
 }
 
@@ -81,7 +83,7 @@ func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (in
 	const MAX_ITERATIONS int = 1000000
 	
 	minCosts := make(map[MazeState]int64)
-	path := make([]*MazeState, 0)
+	prev := make(map[MazeState]*MazeState)
 	searchQueue := make(PriorityQueue, 0)
 	searchQueue.Push(&Item{value: initialState, priority: 0, index: 0})
 	heap.Init(&searchQueue)
@@ -96,7 +98,7 @@ func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (in
 		minCost := getMinCost(minCosts, state)
 
 		if state.Position == *goalPosition {
-			return cost, path
+			return cost, generatePath(prev, state)
 		}
 
 		if cost > minCost {
@@ -113,14 +115,28 @@ func solveMaze(initialState *MazeState, maze [][]rune, goalPosition *[2]int) (in
 				heap.Push(&searchQueue, &item)
 
 				minCosts[*moves[i]] = updatedMincost
-				path = append(path, moves[i])
+				prev[*moves[i]] = state
 			}
 		}
 
 		iteration++
 	}
 
-	return MAX_COST, path
+	return MAX_COST, make([]*MazeState, 0)
+}
+
+func generatePath(prev map[MazeState]*MazeState, finalState *MazeState) []*MazeState {
+	path := make([]*MazeState, 0)
+	exists := true
+	node := finalState
+	
+	for exists {
+		path = append(path, node)
+		node, exists = prev[*node]
+	}
+
+	slices.Reverse(path)
+	return path
 }
 
 func getMinCost(minCosts map[MazeState]int64, state *MazeState) int64 {
