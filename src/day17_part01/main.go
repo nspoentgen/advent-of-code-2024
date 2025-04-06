@@ -9,16 +9,20 @@ import (
 )
 
 func main() {
-	const INPUT_FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day17_part01\test_input.txt`
+	const INPUT_FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day17_part01\input.txt`
 
 	initialRegisterValues, program := parseData(INPUT_FILEPATH)
 	output := executeProgram(initialRegisterValues, program)
 
-	log.Print("The output is ")
-	log.Print(output)
+	stringOutput := make([]string, 0)
+	for _, element := range output {
+		stringOutput = append(stringOutput, strconv.Itoa(int(element)))
+	}
+
+	log.Printf("Output: %s\n", strings.Join(stringOutput, ","))
 }
 
-func parseData(filepath string) (*[3]int, []int) {
+func parseData(filepath string) (*[3]int64, []int64) {
 	file, err := os.Open(filepath)
 	if err != nil {
 		log.Fatal("Could not open file")
@@ -26,7 +30,7 @@ func parseData(filepath string) (*[3]int, []int) {
 
 	defer file.Close()
 
-	registerValues := [3]int{}
+	registerValues := [3]int64{}
 	scanner := bufio.NewScanner(file)
 
 	//Register values
@@ -39,7 +43,7 @@ func parseData(filepath string) (*[3]int, []int) {
 		log.Panic("Could not parse register A value")
 	}
 
-	registerValues[0] = registerValue
+	registerValues[0] = int64(registerValue)
 
 	scanner.Scan()
 	line = scanner.Text()
@@ -50,7 +54,7 @@ func parseData(filepath string) (*[3]int, []int) {
 		log.Panic("Could not parse register B value")
 	}
 
-	registerValues[1] = registerValue
+	registerValues[1] = int64(registerValue)
 
 	scanner.Scan()
 	line = scanner.Text()
@@ -61,11 +65,12 @@ func parseData(filepath string) (*[3]int, []int) {
 		log.Panic("Could not parse register C value")
 	}
 
-	registerValues[2] = registerValue
+	registerValues[2] = int64(registerValue)
+	scanner.Scan()
 	scanner.Scan()
 
 	//Program
-	program := make([]int, 0)
+	program := make([]int64, 0)
 	line = scanner.Text()
 	terms = strings.Split(line, ":")
 	programRaw := strings.Trim(terms[1], " ")
@@ -77,16 +82,16 @@ func parseData(filepath string) (*[3]int, []int) {
 			log.Panic("Could not parse program input")
 		}
 		
-		program = append(program, input)
+		program = append(program, int64(input))
 	}
 
 	return &registerValues, program
 }
 
-func executeProgram(initialRegisterValues *[3]int, program []int) []int {
-	var registers [3]int = *initialRegisterValues
-	output := make([]int, 0)
-	instructionPointer := 0
+func executeProgram(initialRegisterValues *[3]int64, program []int64) []int64 {
+	var registers [3]int64 = *initialRegisterValues
+	output := make([]int64, 0)
+	var instructionPointer int64 = 0
 
 	commandTable := [8]Opcode{
 		adv{},
@@ -98,7 +103,7 @@ func executeProgram(initialRegisterValues *[3]int, program []int) []int {
 		bdv{},
 		cdv{}}
 
-	for instructionPointer <= len(program) - 1 {
+	for instructionPointer <= int64(len(program) - 1){
 		instruction := program[instructionPointer]
 		operand := program[instructionPointer + 1]
 
