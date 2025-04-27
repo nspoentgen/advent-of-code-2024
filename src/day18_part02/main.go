@@ -5,13 +5,8 @@ import (
 	"container/heap"
 	"log"
 	"os"
-	"strings"
 	"strconv"
-)
-
-const (
-	CORRUPTED  = '#'
-	EMPTY = '.'
+	"strings"
 )
 
 const MAX_COST int64 = 1<<63 - 1
@@ -24,16 +19,30 @@ type MazeState struct {
 func main() {
 	const INPUT_FILEPATH string = `D:\Users\Nicolas\Documents\GoLandProjects\advent-of-code-2024\src\day18_part01\input.txt`
 	MAX_DIM_INDEX := 70
-	INITIAL_STATE := MazeState{1024, [2]int{0, 0}}
 
-	maze := parseData(INPUT_FILEPATH)
-	minCost := solveMaze(&INITIAL_STATE, maze, MAX_DIM_INDEX)
+	rawData, maze := parseData(INPUT_FILEPATH)
+	failTime := -1
 
+	for i := range len(maze) {
+		trialTime := i + 1
+		initialState := MazeState{trialTime, [2]int{0, 0}}
+		minCost := solveMaze(&initialState, maze, MAX_DIM_INDEX)
 
-	log.Printf("The min cost is %d\n", minCost)
+		if minCost == MAX_COST {
+			failTime = trialTime
+			break
+		}
+	}
+
+	failCoordiantes := [2]int {-1, -1}
+	if failTime > -1 {
+		failCoordiantes = rawData[failTime - 1]
+	}
+
+	log.Printf("Failure happens at t = %d, cartesian coordinates = (%d, %d)\n", failTime, failCoordiantes[0], failCoordiantes[1])
 }
 
-func parseData(filepath string) map[[2]int]int {
+func parseData(filepath string) ([][2]int, map[[2]int]int) {
 	file, err := os.Open(filepath)
 	if err != nil {
 		log.Fatal("Could not open file")
@@ -41,6 +50,7 @@ func parseData(filepath string) map[[2]int]int {
 
 	defer file.Close()
 
+	rawData := make([][2]int, 0)
 	maze := make(map[[2]int]int)
 	scanner := bufio.NewScanner(file)
 	time := 1
@@ -58,11 +68,12 @@ func parseData(filepath string) map[[2]int]int {
 			log.Fatal(err)
 		}
 
-		maze[[2]int{row, col}] = time
+		rawData = append(rawData, [2]int{ col, row })
+		maze[[2]int{ row, col }] = time
 		time += 1
 	}
 
-	return maze
+	return rawData, maze
 }
 
 func solveMaze(initialState *MazeState, maze map[[2]int]int, maxDimIndex int) int64 {
@@ -79,7 +90,7 @@ func solveMaze(initialState *MazeState, maze map[[2]int]int, maxDimIndex int) in
 	minCosts[*initialState] = 0
 	iteration := 0
 
-	for iteration < MAX_ITERATIONS {
+	for iteration < MAX_ITERATIONS && searchQueue.Len() > 0 {
 		searchItem := heap.Pop(&searchQueue).(*Item)
 		state := searchItem.value
 		cost := searchItem.priority
