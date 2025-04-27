@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 const MAX_COST int64 = 1<<63 - 1
@@ -21,25 +22,45 @@ func main() {
 	MAX_DIM_INDEX := 70
 
 	rawData, maze := parseData(INPUT_FILEPATH)
-	failTime := -1
+
+	outputChannel := make(chan int)
+	invalidTime := len(maze) + 1
+	var minFailTime atomic.Int32
+	minFailTime.Store(int32(invalidTime))
 
 	for i := range len(maze) {
-		trialTime := i + 1
-		initialState := MazeState{trialTime, [2]int{0, 0}}
-		minCost := solveMaze(&initialState, maze, MAX_DIM_INDEX)
+		go func () {
+			trialTime := i + 1
+			minCost := int64(0)
 
-		if minCost == MAX_COST {
-			failTime = trialTime
-			break
+			//Don't waste time solving if we already have a better solution
+			if trialTime <= int(minFailTime.Load()) {
+				initialState := MazeState{trialTime, [2]int{0, 0}}
+				minCost = solveMaze(&initialState, maze, MAX_DIM_INDEX)
+			}
+			
+			if minCost == MAX_COST {
+				outputChannel <- trialTime
+			} else {
+				outputChannel <- invalidTime
+			}
+		} ()
+	}
+	
+	for range len(maze) {
+		trialFailTime := <- outputChannel
+		
+		if trialFailTime < int(minFailTime.Load()) {
+			minFailTime.Store(int32(trialFailTime))
 		}
 	}
 
 	failCoordiantes := [2]int {-1, -1}
-	if failTime > -1 {
-		failCoordiantes = rawData[failTime - 1]
+	if int(minFailTime.Load()) != invalidTime {
+		failCoordiantes = rawData[minFailTime.Load() - 1]
 	}
 
-	log.Printf("Failure happens at t = %d, cartesian coordinates = (%d, %d)\n", failTime, failCoordiantes[0], failCoordiantes[1])
+	log.Printf("Failure happens at t = %d, cartesian coordinates = (%d, %d)\n", minFailTime.Load(), failCoordiantes[0], failCoordiantes[1])
 }
 
 func parseData(filepath string) ([][2]int, map[[2]int]int) {

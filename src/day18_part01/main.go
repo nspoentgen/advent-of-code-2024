@@ -29,7 +29,6 @@ func main() {
 	maze := parseData(INPUT_FILEPATH)
 	minCost := solveMaze(&INITIAL_STATE, maze, MAX_DIM_INDEX)
 
-
 	log.Printf("The min cost is %d\n", minCost)
 }
 
