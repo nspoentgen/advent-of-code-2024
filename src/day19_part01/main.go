@@ -84,27 +84,3 @@ func isPossible(design string, index int, patterns []string) bool {
 
 	return success
 }
-
-/*
-func getMatchMap(design string, patterns []string) map[string]map[int]bool {
-	matchMap := make(map[string]map[int]bool)
-
-	for _, pattern := range patterns {
-		matchIndices := make([int]bool, 0)
-		
-		for index := 0; index + len(pattern) - 1 < len(design); index++ {
-			testSlice := pattern[index : index + len(pattern)]
-			
-			if testSlice == pattern {
-				matchIndices[index] = true
-			}
-		}
-
-		if len(matchIndices) > 0 {
-			matchMap[pattern] = matchIndices
-		}
-	}
-
-	return matchMap
-}
-	*/
